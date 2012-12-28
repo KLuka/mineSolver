@@ -2,19 +2,17 @@ import java.awt.*;
 import java.awt.Robot;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
-import java.awt.geom.AffineTransform;
-import java.awt.image.AffineTransformOp;
-
-
 import java.awt.Toolkit;
-
 import java.awt.image.DataBufferByte;
 import java.io.IOException;
 import javax.imageio.ImageIO;
 import java.io.File;
 import java.lang.Math;
-
 import java.util.Arrays;
+
+
+
+
 
 class mineSolver {
 
@@ -22,7 +20,7 @@ class mineSolver {
 		
 		MineSweeperField msfield = new MineSweeperField();
 
-		msfield.debugSwitch = 1;
+		msfield.setDebug(true);
 		msfield.findMineField();	
 
 	}
@@ -38,7 +36,8 @@ class MineSweeperField {
 	private int xPixelPosition;
 	private int yPixelPosition;
 	private int fieldPixelWidth;
-	public int debugSwitch;
+	
+	private boolean debugSwitch;
 	
 	private final int EMPTY = (-1);
 
@@ -50,24 +49,33 @@ class MineSweeperField {
  *  Description: This function returns screen shot of users screen
  */
  
-	public int findMineField() {
+	public boolean findMineField() {
 	
+		boolean retVal;
+		boolean rowFound, colFound;
 		BufferedImage screenShot;
 
 		screenShot = getScreenShot();
 		
-		findGridColumns( screenShot );
-		findGridRows( screenShot );
+		colFound = findGridColumns( screenShot );
+		rowFound = findGridRows( screenShot );
+		
+		if( colFound && rowFound ) {
+			retVal = true;
+		} else {
+			System.out.println("Mine field not found!");
+			return false;
+		}
 		
 		/* Debug */
-		if( debugSwitch == 1 ) {
+		if( debugSwitch ) {
 			System.out.println(" ---------------------------------------");
 			System.out.println(" Grid coordinates: X: " + xPixelPosition + " Y: " + yPixelPosition );
-			System.out.println(" Number of columns: " +  xDimension + "| Number of rows: " + yDimension );	
+			System.out.println(" Number of columns: " +  xDimension + " | Number of rows: " + yDimension );	
 			System.out.println(" Width of mine field in pixels: " + fieldPixelWidth );
 		}
 		
-		return 0;	
+		return retVal;	
 
 	}
 
@@ -81,21 +89,21 @@ class MineSweeperField {
 
  	private boolean findGridColumns( BufferedImage screenShot )
 	{
-		boolean retValue;
+		boolean retVal;
 		GridLines gridLines = new GridLines();
 		
-		retValue = findVerticalGridLines( screenShot , gridLines );
+		retVal = findVerticalGridLines( screenShot , gridLines );
 		
 		/* Set class variables */
 		xDimension = gridLines.numberOfLines;
 		xPixelPosition = gridLines.firstLineOffset;
 		fieldPixelWidth = gridLines.distanceBetweenLines;
 		
-		if( debugSwitch == 1 ) {
+		if( debugSwitch ) {
 			debugPrintImage( screenShot , "gridCol.bmp" );
 		}
 		
-		return retValue;
+		return retVal;
 		
 	}
 	
@@ -109,6 +117,7 @@ class MineSweeperField {
 	private boolean findGridRows( BufferedImage screenShot )
 	{
 		int i , j;
+		boolean retVal;
 		final int IMG_WIDTH;
 		final int IMG_HEIGHT;
 		BufferedImage rotScreenShot;
@@ -117,6 +126,7 @@ class MineSweeperField {
 		IMG_WIDTH  = screenShot.getWidth();
 		IMG_HEIGHT = screenShot.getHeight();
 
+		/* Rotate screenshot for re-use of findVerticalGridLines function */
 		rotScreenShot = new BufferedImage( IMG_HEIGHT , IMG_WIDTH , screenShot.getType() );
 
 		for( i = 0 ; i< IMG_WIDTH ; i++ ) {
@@ -124,18 +134,20 @@ class MineSweeperField {
 				rotScreenShot.setRGB( IMG_HEIGHT -1 - j , i , screenShot.getRGB(i,j));
 			}
 		}
-
-		findVerticalGridLines( rotScreenShot , gridLines );
+	
+		/* Same procedure as in method findGridColumns */
+		
+		retVal = findVerticalGridLines( rotScreenShot , gridLines );
 
 		yDimension = gridLines.numberOfLines;
 		yPixelPosition = gridLines.firstLineOffset;
 		fieldPixelWidth = gridLines.distanceBetweenLines;
 		
-		if( debugSwitch == 1 ) {
+		if( debugSwitch ) {
 			debugPrintImage( rotScreenShot , "gridRow.bmp" );
 		}
 		
-		return true;
+		return retVal;
 	
 	}
 
@@ -159,15 +171,14 @@ class MineSweeperField {
 		int columnsMatch = 0;
 		int maxColumnsMatch = 0;
 		int maxColumnPixelDiff = 0;
-		boolean retVal = true;
+		int maxColumnStartIndex = 0;
+		
+		final int VERTICAL_STEP;
 		final int IMG_WIDTH;
 		final int IMG_HEIGHT;
-		final int MAX_NUM_OF_COL = 1000;
+		final int MAX_NUM_OF_COL = 100;
 		int[] columnOffset = new int[MAX_NUM_OF_COL];
 		
-
-		int maxColumnStartIndex = 0;
-
 		final int STAT_DATA_LEN = 100;
 		
 		int statDataIndex = 0;
@@ -176,19 +187,23 @@ class MineSweeperField {
 		int[] oneColumnPixelWidth = new int[STAT_DATA_LEN];
 		
 		/* Init */
-	
 		for( i=0 ; i<STAT_DATA_LEN ; i++ ) {
 			startCoordinate[i]  = EMPTY;
 			numberOfColumns[i]  = EMPTY;
 			oneColumnPixelWidth[i] = EMPTY;
 		}
-
+		
+		VERTICAL_STEP = 10;
 		IMG_WIDTH  = screenShot.getWidth();
 		IMG_HEIGHT = screenShot.getHeight();
 
 		
-		/* Move down the lines with 5 pixel step */
-	    for( yPoss  = 0 ; yPoss < IMG_HEIGHT ; yPoss = yPoss + 10 ) {
+		/*************************************************************************/
+		/*                       Find mine grid                                  */
+		/*************************************************************************/
+		
+		/* Move down the lines with VERTICAL_STEP pixel step */
+	    for( yPoss  = 0 ; yPoss < IMG_HEIGHT ; yPoss = yPoss + VERTICAL_STEP ) {
 	
 			okCounter = 0;
 			for( i = 0 ; i < MAX_NUM_OF_COL ; i++ ) columnOffset[i] = EMPTY;
@@ -202,7 +217,7 @@ class MineSweeperField {
 					else okCounter++;
 			
 					/* Debug - paint found pixel red */
-					if( debugSwitch == 1 ) {
+					if( debugSwitch ) {
 						screenShot.setRGB( xPoss , yPoss  , 0x00FF0000 );		
 					}
 					
@@ -225,6 +240,7 @@ class MineSweeperField {
 				
 				pixelDiff = columnOffset[curCol] - columnOffset[curCol-1];
 
+				/* Use tolerance of 4 pixels */
 				if( Math.abs( pixelDiff  - prevPixelDiff ) < 4 ) {
 					columnsMatch++;
 					if( columnsMatch > maxColumnsMatch ) {
@@ -253,14 +269,10 @@ class MineSweeperField {
 				/* Store pixel width of column */
 				oneColumnPixelWidth[statDataIndex] = maxColumnPixelDiff; 
 
-				/* Debug print */
-				if( debugSwitch == 1 ) {
-					System.out.println( " Number of columns: " +  numberOfColumns[statDataIndex] + 
-										" | Start coordiante: " + startCoordinate[statDataIndex] +
-										" | Pixel width : " + oneColumnPixelWidth[statDataIndex] );
-				}
 				statDataIndex++;
-
+				if( statDataIndex == STAT_DATA_LEN ) {
+					break;
+				}
 			}
 			
 			maxColumnsMatch = 0;
@@ -269,8 +281,15 @@ class MineSweeperField {
 			
 			
 		} /* END Move down the lines */
+		
+		/* Check if grid was found */
+		if( statDataIndex < 5 ) {
+			return false;
+		}
 	
-		/* Statisticaly handle data - median filter for all gathered data */
+		/*************************************************************************/
+		/*           Statisticaly handle data with median filter                 */
+		/*************************************************************************/
 
 		Arrays.sort( numberOfColumns , 0 , statDataIndex );
 		Arrays.sort( startCoordinate , 0 , statDataIndex );
@@ -282,7 +301,7 @@ class MineSweeperField {
 		gridLines.firstLineOffset = startCoordinate[ medianIndex ];
 		gridLines.distanceBetweenLines = oneColumnPixelWidth[ medianIndex ];
 
-		return retVal;
+		return true;
 
 	}
 
@@ -292,7 +311,7 @@ class MineSweeperField {
  *        Input: image - buffered image
  *               fileName - file name 
  *       Output: /
- *  Description: This function writes image to disc
+ *  Description: This function writes image to .bmp file
  */
 
 	private void debugPrintImage( BufferedImage image , String fileName )
@@ -355,11 +374,11 @@ class MineSweeperField {
 			((hexPixelColor & 0x00FF0000) > 0x00001E00 )) {
 
 			/* Green commponent in borders */
-			if( ((hexPixelColor & 0x0000FF00) < 0x00006e00 ) && 
+			if( ((hexPixelColor & 0x0000FF00) < 0x00006E00 ) && 
 				((hexPixelColor & 0x0000FF00) > 0x00001000 )) {
 
 				/* Blue commponent in borders */
-				if( ((hexPixelColor & 0x000000FF) < 0x0000008e )) {
+				if( ((hexPixelColor & 0x000000FF) < 0x0000008E )) {
 					return true;
 				}
 			}
@@ -369,12 +388,24 @@ class MineSweeperField {
 	}
 
 /**
+ *     Function: setDebug
+ *        Input: state - true or false
+ *       Output: /
+ *  Description: This function handles debugSwitch
+ */
+
+	public void setDebug( boolean state )
+	{
+		debugSwitch = state;
+		return;
+	}
+	
+ /**
  *     Function: getMineField
  *        Input: /
  *       Output: True or false
  *  Description: This function determines if pixel is wright color to
  */
-
 	public int [][] getMineField() {
 		return mineField;
 	}
