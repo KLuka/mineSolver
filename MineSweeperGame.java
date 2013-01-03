@@ -16,7 +16,7 @@ class MineSweeperGame {
 		MineSweeperField mineField = new MineSweeperField();
 		MineMap mineMap = new MineMap();
 		
-		mineField.setDebug( true );
+		/* mineField.setDebug( true ); */
 		
 		retVal = mineField.findMineField();
 		if( !retVal ) {
