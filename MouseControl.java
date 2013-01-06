@@ -23,7 +23,7 @@ class MouseControl {
 	
 	public void clickPoint( int x , int y , int buttonSelect )
 	{
-		
+		/* Click */
 		try {
 			Robot robot = new Robot();
 			robot.mouseMove( x , y );
@@ -41,6 +41,13 @@ class MouseControl {
 			System.out.println("Cannot create Robot!");
 		}
 		
+		/* Delay */
+		try {
+			Thread.sleep(10);
+		} catch(InterruptedException ex) {
+			System.out.println("Thread.sleep() Failed!");
+		}	
+		
 		return;
 
 	}
@@ -52,7 +59,7 @@ class MouseControl {
  *  Description: This function clicks to center of mine field
  */
 
-	public void clickCenter( MineSweeperField mineField )
+	public void initClick( MineSweeperField mineField )
 	{
 		int x, y;
 		
@@ -64,10 +71,38 @@ class MouseControl {
 		y = y + (( mineField.getDimensionY() * mineField.getWidthOfOneField() ) / 2 );
 		
 		clickPoint( x , y , LEFT );
+		clickPoint( x , y , LEFT );
 		return;
 		
 	}
 
+/**
+ *     Function: clickOnField
+ *        Input: x - x field position
+ *               y - y field position
+ *               mineField - MineSweeperField
+ *       Output: /
+ *  Description: This function clicks to selected mine field
+ */
+
+	public void clickOnField( int x , int y , MineSweeperField mineField )
+	{
+		int xStart, yStart;
+		int xCoordinate, yCoordinate;
+		int centerOfMine;
+		
+		xStart = mineField.getStartPosX();
+		yStart = mineField.getStartPosY();
+		centerOfMine = mineField.getWidthOfOneField() / 2;
+		
+		xCoordinate = xStart + centerOfMine + ( x * mineField.getWidthOfOneField() );
+		yCoordinate = yStart + centerOfMine + ( y * mineField.getWidthOfOneField() );
+		
+		clickPoint( xCoordinate , yCoordinate , LEFT );
+		return;
+		
+	}
+	
 /**
  *     Function: moveAway
  *        Input: /
