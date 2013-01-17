@@ -10,6 +10,7 @@ import javax.imageio.ImageIO;
 class MineSweeperGame {
 	
 	private boolean [][] fieldSolved;
+	private boolean [][] storedFieldSolved;
 	
 	public final int CLOSED  = 9;
 	public final int MINE    = 88;
@@ -31,6 +32,7 @@ class MineSweeperGame {
 	public int solveGame()
 	{
 		int maxAttempts = 80;
+		int checkCount = 5;
 		boolean retVal;
 		
 		MouseControl mouse = new MouseControl();
@@ -58,8 +60,6 @@ class MineSweeperGame {
 			mouse.moveAway();
 			mineMap.updateMineMap( mineField );
 			
-			
-			
 			retVal = tryToSolveGame( mineMap , mineField );
 			if( retVal ) {
 				mineMap.printMineMap();
@@ -67,7 +67,16 @@ class MineSweeperGame {
 				break;
 			}
 			
+			if( checkCount == 0 ) {
+				if( isGameOver( mineField ) ) {
+					System.out.println(" Cannot solve this game!");
+					break;
+				}
+				checkCount = 4;
+			}
+			
 			maxAttempts--;
+			checkCount--;
 			
 		} /* END Solve game */
 		
@@ -81,6 +90,30 @@ class MineSweeperGame {
 		
 	}
 	
+	private boolean isGameOver( MineSweeperField mineField )
+	{
+		int x, y;
+		boolean retVal = true;
+		int xDim = mineField.getDimensionX();
+		int yDim = mineField.getDimensionY();
+		
+		for( y=0 ; y < yDim ; y++ ) {
+			for( x=0 ; x < xDim ; x++ ) {
+				if( fieldSolved[y][x] != storedFieldSolved[y][x] ) retVal = false;
+				storedFieldSolved[y][x] = fieldSolved[y][x];
+			}
+		}
+		
+		return retVal;
+		
+	}
+	
+/**
+ *     Function: initSolveGame
+ *        Input: mineField - MineSweeperField
+ *       Output: 
+ *  Description: This function trys to solve the game 
+ */
 	
 	public void initSolveGame( MineSweeperField mineField )
 	{
@@ -89,11 +122,16 @@ class MineSweeperGame {
 		int yDim = mineField.getDimensionY();
 		
 		fieldSolved = new boolean [yDim][xDim];
-	
+		storedFieldSolved  = new boolean [yDim][xDim];
+		
 		for( y=0 ; y < yDim ; y++ ) 
 			for( x=0 ; x < xDim ; x++ ) 
 				fieldSolved[y][x] = false;
 				
+		for( y=0 ; y < yDim ; y++ ) 
+			for( x=0 ; x < xDim ; x++ ) 
+				storedFieldSolved[y][x] = true;
+		
 		return;
 		
 	}
@@ -171,21 +209,33 @@ class MineSweeperGame {
 	
 	private void trySolveField( int fieldValue , int x , int y , MineMap mineMap , MineSweeperField mineField )
 	{
+		int i=0;
 		int mineCount;
 		int closedCount;
-		int posibleMines;
-		int tempMineCnt;
-		int tempClosedCnt;
+		int posibleMines;		
+		int [] xOff = { -1, 1,  0, 0 };
+		int [] yOff = {  0, 0, -1, 1 };
+		int [] selZone = { COLUMN, COLUMN, ROW, ROW };
 
+
+		/*************************************************************************/
+		/*                       Basic common solving                            */
+		/*************************************************************************/
+		
 		/* Get basic information form sorounding fields */
 		mineCount = checkForValue( x , y , MINE , SQUARE , mineMap );
 		closedCount = checkForValue( x , y , CLOSED , SQUARE , mineMap );
-		
 		posibleMines = fieldValue - mineCount;
+		
+		/* Check if field is already solved */
+		if( (closedCount == 0) && (fieldValue == mineCount) ) {
+			fieldSolved[y][x] = true;
+			return;
+		}
 		
 		/* Set mines */
 		if( posibleMines == closedCount ) {	
-			setMineToAllClosed( x , y , mineMap );
+			setMineToAllClosed( x , y , SQUARE, mineMap );
 			fieldSolved[y][x] = true;
 			return;
 		}
@@ -194,27 +244,80 @@ class MineSweeperGame {
 		
 		/* Solved */
 		if( mineCount == fieldValue ) {
-			if( closedCount > 0 ) openAllClosed( x , y , mineMap , mineField );
+			if( closedCount > 0 ) openAllClosed( x , y , SQUARE, mineMap , mineField );
 			fieldSolved[y][x] = true;
 			return;
 		} 
 		
-		int i=0;
+		/*************************************************************************/
+		/*                           Special cases                               */
+		/*************************************************************************/
+		
 		if( fieldValue == TWO_M ) {
-			 if( mineMap.getFieldValue( x-1 , y ) == ONE_M ) {
-				tempMineCnt = checkForValue( x+1 , y , MINE , COLUMN , mineMap );
-				tempClosedCnt = checkForValue( x+1 , y , CLOSED , COLUMN , mineMap );
-				if( tempMineCnt==0 && tempClosedCnt==1 ) {
-					for( i=y-1 ; i<(y+2) ; i++ ) {
-						if( mineMap.getFieldValue( x+1 , i ) == CLOSED ) {
-							mineMap.setMineOnMap( x+1 , i );
-						}
+			
+			/* Check for special case | 1 | 2 | F | */
+			for( i=0 ; i<4 ; i++ ) {
+				if( mineMap.getFieldValue( x + xOff[i] , y + yOff[i] ) == ONE_M ) {
+				
+					mineCount =  checkForValue( x - xOff[i] , y - yOff[i] , MINE , selZone[i] , mineMap );
+					closedCount = checkForValue( x - xOff[i] , y - yOff[i] , CLOSED , selZone[i] , mineMap );
+				
+					/* Set mine to closed field in column or row away from field ONE_M */
+					if ((mineCount == 0) && (closedCount == 1)) {
+						System.out.printf("2 x: %d y: %d\n" , x , y );
+						setMineToAllClosed( x - xOff[i] , y - yOff[i] , selZone[i] , mineMap );
 					}
+
 				}
-			 }
+			}
+			return;
 		}
 		
+		if( fieldValue == THREE_M ) {
+			
+			/* Check for special case | 1 | 3 | F | */
+			for( i=0 ; i<4 ; i++ ) {
+				if( mineMap.getFieldValue( x + xOff[i] , y + yOff[i] ) == ONE_M ) {
+				
+					mineCount =  checkForValue( x - xOff[i] , y - yOff[i] , MINE , selZone[i] , mineMap );
+					closedCount = checkForValue( x - xOff[i] , y - yOff[i] , CLOSED , selZone[i] , mineMap );
+				
+					/* Set mine to closed field in column or row away from field ONE_M */
+					if ((mineCount == 0) && (closedCount == 2)) {
+						System.out.printf("3 x: %d y: %d\n" , x , y );
+						setMineToAllClosed( x - xOff[i] , y - yOff[i] , selZone[i] , mineMap );
+					}
+					
+					if ((mineCount == 1) && (closedCount == 1)) {
+						System.out.printf("33 x: %d y: %d\n" , x , y );
+						setMineToAllClosed( x - xOff[i] , y - yOff[i] , selZone[i] , mineMap );
+					}
 
+				}
+			}
+			return;
+		}
+		
+		if( fieldValue == FOUR_M ) {
+			
+			/* Check for special case | 1 | 4 | F | */
+			for( i=0 ; i<4 ; i++ ) {
+				if( mineMap.getFieldValue( x + xOff[i] , y + yOff[i] ) == ONE_M ) {
+				
+					mineCount =  checkForValue( x - xOff[i] , y - yOff[i] , MINE , selZone[i] , mineMap );
+					closedCount = checkForValue( x - xOff[i] , y - yOff[i] , CLOSED , selZone[i] , mineMap );
+				
+					/* Set mine to all closed fields in column or row away from field ONE_M */
+					if( closedCount > 0 ) {
+						System.out.printf("4 x: %d y: %d\n" , x , y );
+						setMineToAllClosed( x - xOff[i] , y - yOff[i] , selZone[i] , mineMap );
+					}
+
+				}
+			}
+			return;
+		}
+		
 		return;
 		
 	}
@@ -236,7 +339,6 @@ class MineSweeperGame {
 		
 		/* Count slected values in 3x3 square */
 		if( selectZone == SQUARE ) {
-		
 			for( yTmp=(y-1) ; yTmp<(y+2) ; yTmp++ ) {
 				for( xTmp=(x-1) ; xTmp<(x+2) ; xTmp++) {
 					if( mineMap.getFieldValue( xTmp , yTmp ) == selectValue ) {
@@ -270,23 +372,46 @@ class MineSweeperGame {
 /**
  *     Function: setMineToAllClosed
  *        Input: x, y - map position
+ *				 selectZone - SQUARE, COLUMN or ROW
  *               mineMap - MineMap
  *               mineField - MineSweeperField
  *       Output: /
- *  Description: This function sets all closed fields to MINE in 3x3 square around given position
+ *  Description: This function sets all closed fields to MINE in square, column or row around given position
  */
 	
-	private void setMineToAllClosed( int x , int y , MineMap mineMap )
+	private void setMineToAllClosed( int x , int y , int selectZone, MineMap mineMap )
 	{
 		int xTmp, yTmp;
-	
-		for( yTmp=(y-1) ; yTmp<(y+2) ; yTmp++ ) {
-			for( xTmp=(x-1) ; xTmp<(x+2) ; xTmp++) {
-				if( mineMap.getFieldValue( xTmp , yTmp ) == CLOSED ) {
-					mineMap.setMineOnMap( xTmp , yTmp );
+		
+		/* Set mine to all closed fields in 3x3 square */
+		if( selectZone == SQUARE ) {
+			for( yTmp=(y-1) ; yTmp<(y+2) ; yTmp++ ) {
+				for( xTmp=(x-1) ; xTmp<(x+2) ; xTmp++) {
+					if( mineMap.getFieldValue( xTmp , yTmp ) == CLOSED ) {
+						mineMap.setMineOnMap( xTmp , yTmp );
+					}
 				}
 			}
 		}
+		
+		/* Set mine to all closed fields in column */
+		if( selectZone == COLUMN ) {
+			for( yTmp=(y-1) ; yTmp<(y+2) ; yTmp++ ) {
+				if( mineMap.getFieldValue( x , yTmp ) == CLOSED ) {
+					mineMap.setMineOnMap( x , yTmp );
+				}
+			}
+		}
+		
+		/* Set mine to all closed fields in row */
+		if( selectZone == ROW ) {
+			for( xTmp=(x-1) ; xTmp<(y+2) ; xTmp++ ) {
+				if( mineMap.getFieldValue( xTmp , y ) == CLOSED ) {
+					mineMap.setMineOnMap( xTmp , y );
+				}
+			}
+		}
+		
 		return;
 	}
 	
@@ -299,18 +424,40 @@ class MineSweeperGame {
  *  Description: This function opens all closed field in 3x3 square around given position
  */
 	
-	private void openAllClosed( int x , int y , MineMap mineMap ,  MineSweeperField mineField )
+	private void openAllClosed( int x , int y , int selectZone, MineMap mineMap ,  MineSweeperField mineField )
 	{
 		int xTmp, yTmp;
 		MouseControl mouse = new MouseControl();
 		
-		for( yTmp=(y-1) ; yTmp<(y+2) ; yTmp++ ) {
-			for( xTmp=(x-1) ; xTmp<(x+2) ; xTmp++) {
-				if( mineMap.getFieldValue( xTmp , yTmp ) == CLOSED ) {
-					mouse.clickOnField( xTmp , yTmp , mineField );
+		/* Open all closed fields in 3x3 square */
+		if( selectZone == SQUARE ) {	
+			for( yTmp=(y-1) ; yTmp<(y+2) ; yTmp++ ) {
+				for( xTmp=(x-1) ; xTmp<(x+2) ; xTmp++) {
+					if( mineMap.getFieldValue( xTmp , yTmp ) == CLOSED ) {
+						mouse.clickOnField( xTmp , yTmp , mineField );
+					}
 				}
 			}
 		}
+		
+		/* Open all closed fields in column */
+		if( selectZone == COLUMN ) {
+			for( yTmp=(y-1) ; yTmp<(y+2) ; yTmp++ ) {
+				if( mineMap.getFieldValue( x , yTmp ) == CLOSED ) {
+					mouse.clickOnField( x , yTmp , mineField );
+				}
+			}
+		}
+		
+		/* Open all closed fields in row */
+		if( selectZone == ROW ) {
+			for( xTmp=(x-1) ; xTmp<(y+2) ; xTmp++ ) {
+				if( mineMap.getFieldValue( xTmp , y ) == CLOSED ) {
+					mouse.clickOnField( xTmp , y , mineField );
+				}
+			}
+		}
+		
 		return;
 	}
 	

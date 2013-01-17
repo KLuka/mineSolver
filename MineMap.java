@@ -78,7 +78,10 @@ class MineMap {
 	
 	public void setMineOnMap( int x , int y )
 	{
+		if( (x<0) || (y<0) ) return;
+		if( (x >= xDimension ) ||(y >= yDimension)) return;
 		mineMap[y][x] = MINE;
+		
 		return;
 	}
 	
@@ -233,8 +236,11 @@ class MineMap {
 		if( isFieldOne( colorMin ,  colorMax )) 	return ONE_M;
 		if( isFieldThree( colorMin ,  colorMax )) 	return THREE_M;
 		if( isFieldFour(  colorMin ,  colorMax ))   return FOUR_M;
+		
+		/*
 		if( isFieldFive(  colorMin ,  colorMax ))   return FIVE_M;
-
+		*/
+		
 		return CLOSED;
 	
 	}
